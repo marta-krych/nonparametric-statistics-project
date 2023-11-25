@@ -48,8 +48,8 @@ health <- dataset[81:130,]
 ## I can try to do some tests:
 # • Two multivariate populations test:
 #  - Parinson vs RBD:
-     t1 =  parkinson_ill[,14:27]
-     t2 =  RBD[,14:27]
+     t1 =  parkinson_ill[,14:25]
+     t2 =  RBD[,14:25]
      
      t1.mean = colMeans(t1)
      t2.mean = colMeans(t2)
@@ -175,9 +175,41 @@ health <- dataset[81:130,]
 # between RBD and Parkison patients.
 # Honestly i want to go deeper to see some differences between RBD and Parkinson patiens.
      
-
+# • Permutational one way Manova:
+     reduced_dataset <- dataset[1:80,]
+     reduced_dataset$Category <- as.factor(c( rep("Ill", 30) , rep("At Risk", 50) ))
+     n1 <- 30
+     n2 <- 50
+     n_test  <- n1+n2
      
-  
+     g  <- 2
+     p  <- 11
      
+     fit <- manova(as.matrix(reduced_dataset[,14:25]) ~ reduced_dataset$Category)
+     summary.manova(fit,test="Wilks") 
      
-
+     T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+     T0
+     
+     set.seed(seed)
+     T_stat <- numeric(B)
+     
+     for(perm in 1:B){
+       # choose random permutation
+       permutation <- sample(1:n_test)
+       category.perm <- reduced_dataset$Category[permutation]
+       fit.perm <- manova(as.matrix(reduced_dataset[,14:25]) ~ category.perm)
+       T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+     }
+     
+     hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+     abline(v=T0,col=3,lwd=2)
+     
+     plot(ecdf(T_stat),xlim=c(-2,1))
+     abline(v=T0,col=3,lwd=4)
+     
+     p_val <- sum(T_stat>=T0)/B
+     p_val # 0.3994.
+     
+# In conclusion Test of multivariate data and one-way Manova bring the same result: non difference between RBD an Parkinson.
+     
