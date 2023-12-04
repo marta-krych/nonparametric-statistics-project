@@ -24,7 +24,7 @@ colnames(speech_dataset) <- c('EST_r','RST_r','AST_r','DPI_r','DVI_r','GVI_r','D
 colnames(speech_dataset)
 
 #save the rbd patients into a separate table
-rbd.speech_dataset <- speech_dataset[which(speech_dataset$Category == "RBD"),-25]
+rbd.speech_dataset <- speech_dataset[which(speech_dataset$Category == "RBD"),]
 
 norbd.speech_dataset <- speech_dataset[-which(speech_dataset$Category == "RBD"),]
 
@@ -65,7 +65,9 @@ pairs(norbd.speech_dataset[,-25], col=col)
 #no outliers dataset
 norbd.speech_dataset.clean <- norbd.speech_dataset[-MOST.OUTLYING,]
 
+speech_dataset.clean <- rbind(norbd.speech_dataset.clean, rbd.speech_dataset)
 
+write.csv(speech_dataset.clean, file="data/speech_no_outliers.csv")
 
 
 
