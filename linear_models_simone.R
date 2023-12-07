@@ -8,6 +8,7 @@ library(progress)
 B <- 1000
 alpha <- 0.05
 seed <- 5122023
+set.seed(seed)
 
 ###### VARIABLE SELECTION ON OUTLIERS-FREE DATASET
 
@@ -77,7 +78,7 @@ reduced.rbd <- data.frame(scale(rbd[,columns]))
 
 ###### LOGISTIC REGRESSION MODELS ON SPEECH VARIABLES
 
-#original dataset to retrieve age and gender
+#original dataset to retrieve age and gender and to compute UPDRSIII*
 original.df <- read.csv("data/parkinson.csv")
 colnames(original.df) <- original.df[1,]
 original.df <- original.df[-1,]
@@ -90,6 +91,9 @@ reduced.no.rbd$Gender <- original.df$Gender[rows]
 rows <- as.numeric(rownames(reduced.rbd))
 reduced.rbd$Age <- as.numeric(original.df$`Age (years)`[rows])
 reduced.rbd$Gender <- original.df$Gender[rows]
+
+updrsIII_new <- as.numeric(original.df[31:80,14]) -  as.numeric(original.df[31:80,22]) - 
+  as.numeric(original.df[31:80,23])
 
 #function for computing probability estimates
 pred.model <- function(model, dataset) {
@@ -123,7 +127,7 @@ cv.performance <- function(model, treshold) {
 
 ### GENERALIZED LINEAR MODELS 
 y <- as.numeric(grouping == "PD")
-treshold <- 0.7
+treshold <- 0.5
 p <- dim(reduced.no.rbd)[2]
 
 models.nvars <- function(nvars, treshold) {
@@ -155,8 +159,8 @@ models.nvars <- function(nvars, treshold) {
     pb$tick()
   }
   
-  results <- results[order(results$cv.performance,decreasing=TRUE),]
-  return(results)
+  results.ordered <- results[order(results$cv.performance,decreasing=TRUE),]
+  return(results.ordered)
   
 }
 
@@ -198,43 +202,45 @@ best.10.var <- get.max(results.10.var)
 results.11.var <- models.nvars(11, treshold)
 best.11.var <- get.max(results.11.var)
 
-#the best models (3,4,5,6 variables) reach all 74% of LOOCV accuracy. So we perform an F-test to understand
-#if the least complex model is sufficient.
+#the best models (3,4,5 variables) reach all 74.24% of LOOCV accuracy. 
+#So we perform a ChiSq-test to understand if the least complex model is sufficient.
 
 #models definition (without repeating all the loops)
-model3 <- glm(y ~ EST_r + DPI_m + Gender, family = 'binomial', data=reduced.no.rbd)
-model4 <- glm(y ~ EST_r + DPI_m + PIR_m + Gender, family = 'binomial', data=reduced.no.rbd)
-model5 <- glm(y ~ EST_r + DPI_m + PIR_m + LRE_m + Gender, family = 'binomial', data=reduced.no.rbd)
-model6 <- glm(y ~ EST_r + DPI_m + PIR_m + LRE_m + RSR_m + Gender, family = 'binomial', data=reduced.no.rbd)
-anova(model5,model6, test = "Chisq") #0.5138, reduced model is sufficient
-anova(model4,model5, test = "Chisq") #0.9978, reduced model is sufficient
-anova(model3,model4, test = "Chisq") #0.4297, reduced model is sufficient
+model3 <- glm(y ~ EST_r + DPI_r + Gender, family = 'binomial', data=reduced.no.rbd)
+model4 <- glm(y ~ EST_r + DPI_r + LRE_m + Gender, family = 'binomial', data=reduced.no.rbd)
+model5 <- glm(y ~ EST_r + DPI_r + RST_m + DPI_m + Gender, family = 'binomial', data=reduced.no.rbd)
+model5.1 <- glm(y ~ EST_r + DPI_r + LRE_m + Age + Gender, family = 'binomial', data=reduced.no.rbd)
+
+anova(model3,model4, test = "Chisq") #0.8973, reduced model is sufficient
+#anova(model3,model5.1, test = "Chisq") #0.989, reduced model is sufficient
 
 #the simpler linear model in terms of number of covariates among all the best LOOCV-score models
 #is model3
+summary(model3)
 
-#Let's see if we can consider a reduction of model3 not losing a lot of LOOCV-score 
-model2 <- glm(y ~ DPI_m + Gender , family = 'binomial', data=reduced.no.rbd)
-summary(model2)
+#Let's see if we can consider a reduction of model3 not losing a lot of LOOCV-score ,
+#a possible solution is removing the intercept
+model3.reduced <- glm(y ~  EST_r + DPI_r + Gender -1 , family = 'binomial', data=reduced.no.rbd)
+summary(model3.reduced)
 
-model2red <- glm(y ~ DPI_m + Gender -1, family = 'binomial', data=reduced.no.rbd)
-summary(model2red)
 
-anova(model2red, model2, test="Chisq") #0, intercept is needed
+summary(model5)
+summary(model5.1)
+#not very good p.values for the coefficients
 
-anova(model2, model3, test="Chisq") #0.5348, we can consider model2
-
-cv.performance(model2, treshold) #72.7% instead of 74.2%
+cv.performance(model3, treshold) #74.2%
+cv.performance(model3.reduced, treshold) #74.2%
 
 #Let's see how both models classify the RBD patients
-model2.rbd.predictions <- as.numeric(pred.model(model2, reduced.rbd)>treshold)
-model2.rbd.predictions
-
 model3.rbd.predictions <- as.numeric(pred.model(model3, reduced.rbd)>treshold)
 model3.rbd.predictions
 
-#as.numeric(original.df$`UPDRS III total (-)`[31:80]>=3)
-#I don't think this predictions can be accurate 
+model3.reduced.rbd.predictions <- as.numeric(pred.model(model3.reduced, reduced.rbd)>treshold)
+model3.reduced.rbd.predictions
+#same predictions as model3, let's stick with the reduced version then.
+
+table(true_label = as.numeric(updrsIII_new>3), prediction = model3.reduced.rbd.predictions)
+
 
 
 
