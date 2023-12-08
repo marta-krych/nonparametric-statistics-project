@@ -1,8 +1,6 @@
 library(readr)
 library(ggplot2)
 library(tidyr)
-library(mgcv)
-library(boot)
 library(progress)
 
 B <- 1000
