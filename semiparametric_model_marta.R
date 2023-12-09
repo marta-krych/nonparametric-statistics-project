@@ -150,17 +150,18 @@ summary(model_semipar)
 
 test <- speech_dataset[rischio, c(2,14,4,16,7)]
 
-predictions <- predict(model_semipar, test, se=TRUE)
-pfit <- exp(predictions$fit)/(1 + exp(predictions$fit))
+predictions <- predict(model_semipar, test, se=TRUE, type="response")
+# predictions <- predict(model_semipar, test, se=TRUE)
+# pfit <- exp(predictions$fit)/(1 + exp(predictions$fit))
 
 
-model_RBD <- ifelse(pfit > .5, 1, 0)
+model_RBD <- ifelse(predictions$fit > .5, 1, 0)
 updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
 
 table(true_label=updrs_RBD, prediction=model_RBD)
 
 cols <- ifelse(updrs_RBD == 1, 'red', 'black')
-plot(pfit, col=cols, pch=16)
+plot(predictions$fit, col=cols, pch=16)
 abline(0.5, 0, col='red', lty=2, lwd=2)
 # The threshold itself is okay. It is the model that doesn't perform too well
 
@@ -187,16 +188,17 @@ test <- speech_dataset[rischio, c(2,14,4,16,7)]
 test <- data.frame(Gender=ifelse(parkinson[31:80, 2] == 'F',1,0),
                    test)
 
-predictions <- predict(model_semipar_g, test, se=TRUE)
-pfit <- exp(predictions$fit)/(1 + exp(predictions$fit))
+predictions <- predict(model_semipar_g, test, se=TRUE, type="response")
+# predictions <- predict(model_semipar_g, test, se=TRUE)
+# pfit <- exp(predictions$fit)/(1 + exp(predictions$fit))
 
 
-model_RBD <- ifelse(pfit > .5, 1, 0)
+model_RBD <- ifelse(predictions$fit > .5, 1, 0)
 updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
 
 table(true_label=updrs_RBD, prediction=model_RBD)
 
 cols <- ifelse(updrs_RBD == 1, 'red', 'black')
-plot(pfit, col=cols, pch=16)
+plot(predictions$fit, col=cols, pch=16)
 abline(0.5, 0, col='red', lty=2, lwd=2)
 
