@@ -43,6 +43,23 @@ for (feature in features) {
 }
 
 
+#### Boxplots for presentation ####
+
+library(ggplot2)
+data <- speech_dataset[speech_dataset$Category != "RBD",]
+features <- c("RST_r", "DPI_r", "DUS_r", "DPI_m", "RST_m")
+
+for (feature in features) {
+  plot <- ggplot(data, aes(x=Category, y=data[,feature], fill=Category)) +
+    scale_fill_manual(values=c("lightskyblue","lightcyan4")) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = paste("Box Plot of", feature), x = "Category", y = feature)
+  
+  print(plot)
+}
+
+
 ### Checking for speech variables with Gaussian distribution
 
 filtered_data <- subset(data, Category %in% c("PD", "Control"))
