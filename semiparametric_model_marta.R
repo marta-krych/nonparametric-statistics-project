@@ -22,10 +22,11 @@ updrsIII.new <- updrsIII - (as.numeric(parkinson[rischio, 21]) + as.numeric(park
 
 
 # Dataset with only speech variables:
-speech_dataset = parkinson[,c(41:65)]
-colnames(speech_dataset) = c('EST_r','RST_r','AST_r','DPI_r','DVI_r','GVI_r','DUS_r','DUF_r','RLR_r',
+speech_dataset <- parkinson[,c(41:65)]
+colnames(speech_dataset) <- c('EST_r','RST_r','AST_r','DPI_r','DVI_r','GVI_r','DUS_r','DUF_r','RLR_r',
                              'PIR_r','RSR_r','LRE_r','EST_m','RST_m','AST_m','DPI_m','DVI_m','GVI_m','DUS_m',
                              'DUF_m','RLR_m','PIR_m','RSR_m','LRE_m','Category')
+
 
 ### Boxplots
 
@@ -97,7 +98,7 @@ print(significant_normal_variables)
 
 
 ### Testing the non-normally distributed variables for the difference in mean between HC and PD
-### (using a permutational test)
+### (using a permutation test)
 
 not_normal_variables <- setdiff(features, normal_variables)
 
@@ -220,26 +221,44 @@ plot(predictions$fit, col=cols, pch=16)
 abline(0.5, 0, col='red', lty=2, lwd=2)
 
 
-### Conformal prediction  (DA RIVEDERE!)
+
+### Conformal prediction
 
 library(conformalInference)
 
 train_gam <- function(x, y, out=NULL){
-  colnames(x) <- c('Gender','RST_r','DPI_r','DUS_r','RST_m','DPI_m')
+  colnames(x) <- c('Gender','RST_r','RST_m','DPI_r','DPI_m','DUS_r')
   train_data <- data.frame(y, x)
-  model_gam <- gam(as.factor(y) ~ Gender + RST_r + RST_m + s(DPI_r) + s(DPI_m) + s(DUS_r), 
+  model_gam <- gam(as.factor(y) ~ Gender + RST_r + RST_m + s(DPI_r) + s(DPI_m) + s(DUS_r),
                    family=binomial, data=train_data)
 }
 
 predict_gam <- function(obj, new_x){
   new_x <- data.frame(new_x)
-  colnames(new_x) <- c('Gender','RST_r','DPI_r','DUS_r','RST_m','DPI_m')
-  predictions <- predict.gam(obj, new_x, type="response")
+  colnames(new_x) <- c('Gender','RST_r','RST_m','DPI_r','DPI_m','DUS_r')
+  predict.gam(obj, new_x, type="response")
 }
 
-features  <- df_model_g[,-2]
-responses <- df_model_g[,2]
+model_gam <- gam(Category ~ Gender + RST_r + RST_m + s(DPI_r) + s(DPI_m) + s(DUS_r), 
+                 family=binomial, data=df_model_g)
 
-c_preds <- conformal.pred(x=as.matrix(features), y=responses, x0=as.matrix(test), 
-                          alpha=0.05, verbose=TRUE, 
+target <- df_model_g$Category
+covariates <- df_model_g[,c(1,3,6,4,7,5)]
+
+c_preds <- conformal.pred(covariates, target, as.matrix(test), alpha=0.05, verbose=TRUE, 
                           train.fun=train_gam, predict.fun=predict_gam, num.grid.pts=200)
+
+data.frame(lower=c_preds$lo, 
+           prediction=c_preds$pred, 
+           upper=c_preds$up)
+
+
+model_RBD <- ifelse(c_preds$pred > .5, 1, 0)
+updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
+
+table(true_label=updrs_RBD, prediction=model_RBD)
+
+cols <- ifelse(updrs_RBD == 1, 'red', 'black')
+plot(c_preds$pred , col=cols, pch=16)
+abline(0.5, 0, col='red', lty=2, lwd=2)
+
