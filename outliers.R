@@ -1,4 +1,3 @@
-library(DepthProc)
 library(aplpack)
 
 speech <- read.csv("data/speech.csv")
@@ -17,7 +16,7 @@ norbd.full <- speech[-which(speech$Category == "RBD"),]
 #will be used to build a regression model to assess the risk for RBD patients
 
 OUTLIER.INDICES <- numeric(0)
-p <- dim(pd)[2]
+p <- dim(norbd)[2]
 
 for (i in 1:p) {
   
@@ -46,6 +45,8 @@ outliers <- head(counts.outliers, 14)
 MOST.OUTLYING <- as.numeric(names(outliers))
 MOST.OUTLYING
 
+#4  6  3 41 72 50 52 28 75  8 23 59 74 11
+
 n <- dim(speech)[1]
 col <- rep("blue", n)
 col[MOST.OUTLYING] <- "red"
@@ -59,7 +60,7 @@ ids <- as.numeric(rownames(speech.clean))
 
 speech.clean <- speech.clean[order(ids),]
 
-write.csv(speech.clean, file="data/speech_no_outliers.csv")
+write.csv(speech.clean, file="data/speech_no_outliers.csv", row.names = FALSE)
 
 
 
