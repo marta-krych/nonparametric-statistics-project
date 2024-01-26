@@ -185,10 +185,11 @@ for (feature in features) {
 
 
 
-### Modeling step
+### Modeling step: semiparametric model
 
 library(mgcv)
 library(splines)
+
 
 ## Building a model with: Gender RST_r DPI_r DUS_r RST_m DPI_m 
 
@@ -203,22 +204,49 @@ with(df_model_g, scatterplotMatrix(data.frame(Category, Gender, RST_r, DPI_r, DU
 # linear relationship: Gender, RST_r, RST_m
 # non-linear relationship: DPI_r, DPI_m, DUS_r
 
-cor(as.matrix(df_model_g[,c(3,6)]))  
+cor(as.matrix(df_model_g[,c(3,6)]))
 # cor(RST_r, RST_m) = 0.6322871 (highly correlated) 
-# ==> keeping just RST_r to avoid collinearity in the linear part of the model
+# --> keeping only RST_m to avoid collinearity in the linear part of the model
 
-model_semipar_g <- gam(Category ~ Gender + RST_r + s(DPI_r) + s(DPI_m) + s(DUS_r), 
-                       family=binomial, data=df_model_g)
-summary(model_semipar_g)
 
-concurvity(model_semipar_g)  # some issues with DPI_r (high concurvity), should we deal with it somehow?
+### 1)
+
+model_semipar <- gam(Category ~ Gender + s(DPI_r) + s(DUS_r) + RST_m + s(DPI_m), 
+                     family=binomial, data=df_model_g)
+summary(model_semipar)
+
+concurvity(model_semipar)  # some issues with DPI_r and DPI_m
 # (concurvity is the analogous of collinearity but for smoothed terms)
+# --> removing DPI_m, as DPI_r is significant in the model
 
-test <- speech_dataset[rbd, c(2,4,16,7)]
-test <- data.frame(Gender=ifelse(parkinson[31:80, 2] == 'F',1,0),
+
+### 2)
+
+model_semipar_red <- gam(Category ~ Gender + s(DPI_r) + s(DUS_r) + RST_m, 
+                         family=binomial, data=df_model_g)
+summary(model_semipar_red)
+
+concurvity(model_semipar_red)
+# --> removing DUS_r
+
+
+### 3)
+
+model_semipar_f <- gam(Category ~ Gender + s(DPI_r) + RST_m, 
+                       family=binomial, data=df_model_g)
+summary(model_semipar_f)
+
+concurvity(model_semipar_f)
+
+
+
+### 'Traditional' prediction using model_semipar_f
+
+test <- speech_dataset[rbd, c(4,14)]
+test <- data.frame(Gender=ifelse(parkinson[rbd, 2] == 'F',1,0),
                    test)
 
-predictions <- predict(model_semipar_g, test, se=TRUE, type="response")
+predictions <- predict(model_semipar_f, test, se=TRUE, type="response")
 # predictions <- predict(model_semipar_g, test, se=TRUE)
 # pfit <- exp(predictions$fit)/(1 + exp(predictions$fit))
 
@@ -227,34 +255,38 @@ updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
 
 table(true_label=updrs_RBD, prediction=model_RBD)
 
+
 cols <- ifelse(updrs_RBD == 1, 'red', 'black')
 plot(predictions$fit, col=cols, pch=16)
 abline(0.5, 0, col='red', lty=2, lwd=2)
 
+#           prediction
+# true_label   0  1
+#          0  18  9
+#          1  11 12
 
 
-### Conformal prediction
+
+### Full conformal prediction
 
 library(conformalInference)
 
 train_gam <- function(x, y, out=NULL){
-  colnames(x) <- c('Gender','RST_r','DPI_r','DPI_m','DUS_r')
+  colnames(x) <- c('Gender','DPI_r','RST_m')
   train_data <- data.frame(y, x)
-  model_gam <- gam(as.factor(y) ~ Gender + RST_r + s(DPI_r) + s(DPI_m) + s(DUS_r),
-                   family=binomial, data=train_data)
+  model_gam <- gam(as.factor(y) ~ Gender + s(DPI_r) + RST_m, family=binomial, data=train_data)
 }
 
 predict_gam <- function(obj, new_x){
   new_x <- data.frame(new_x)
-  colnames(new_x) <- c('Gender','RST_r','DPI_r','DPI_m','DUS_r')
+  colnames(new_x) <- c('Gender','DPI_r','RST_m')
   predict.gam(obj, new_x, type="response")
 }
 
-model_gam <- gam(Category ~ Gender + RST_r + s(DPI_r) + s(DPI_m) + s(DUS_r), 
-                 family=binomial, data=df_model_g)
+model_gam <- gam(Category ~ Gender + s(DPI_r) + RST_m, family=binomial, data=df_model_g)
 
 target <- df_model_g$Category
-covariates <- df_model_g[,c(1,3,4,7,5)]
+covariates <- df_model_g[,c(1,4,6)]
 
 c_preds <- conformal.pred(covariates, target, as.matrix(test), alpha=0.05, verbose=TRUE, 
                           train.fun=train_gam, predict.fun=predict_gam, num.grid.pts=200)
@@ -263,12 +295,9 @@ data.frame(lower=c_preds$lo,
            prediction=c_preds$pred, 
            upper=c_preds$up)
 
-
 model_RBD <- ifelse(c_preds$pred > .5, 1, 0)
 updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
 
 table(true_label=updrs_RBD, prediction=model_RBD)
-
-
 
 
