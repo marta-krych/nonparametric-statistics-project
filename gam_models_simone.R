@@ -152,28 +152,6 @@ summary(gam9) #DPI_m and Gender are significant at level 5%
 cv.performance(gam9, treshold) #65.15%
 
 
-gam10 <- gam(y ~ -1 + RST_r + DPI_m +
-              Gender , family = 'binomial', data=reduced.no.rbd)
-summary(gam10) #DPI_m is significant at level 5%, the others are terrible
-cv.performance(gam10, treshold) #65.15%
-
-
-gam11 <- gam(y ~ -1 + RST_r + DPI_m , family = 'binomial', data=reduced.no.rbd)
-summary(gam11) #terms are significant at level 1% but maybe the model is too simple
-cv.performance(gam11, treshold) #69.69%
-table(true_label = as.numeric(updrsIII_new>3), 
-      prediction = as.numeric(predict(gam11, rbd, "response")>treshold))
-#           prediction
-# true_label   0  1
-#           0 21  6
-#           1 13  10
-
-
-
-gam12 <- gam(y ~ RST_r + DPI_m + Gender, family = 'binomial', data=reduced.no.rbd)
-summary(gam12) #DPi_m and Gender are significant at level 5%
-cv.performance(gam12, treshold) #65.15%
-
 
 
 
