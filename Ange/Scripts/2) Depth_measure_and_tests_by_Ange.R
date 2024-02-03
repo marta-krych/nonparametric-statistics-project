@@ -1,3 +1,5 @@
+# NB: here i would kepp the clustering to compare what we have obtain with the fitted model !
+
 ## Useful libraries:
 library(readr)
 library(MASS)
@@ -55,7 +57,7 @@ health <- dataset[81:130,]
 
 ## I can try to do some tests:
 # • Two multivariate populations test:
-#  - Parinson vs RBD:
+#  - Parkinson vs RBD:
      t1 =  parkinson_ill[,c(16,22)]
      t2 =  RBD[,c(16,22)]
      

@@ -1,4 +1,8 @@
  library(readr)
+## What expect here:
+# For the numerical variable here i tried the PCA approach keeping the variables that explain more
+# the firsts PCs. I also use the correlation matrix to not delete variable that can contribute to explain the dataset.
+# For the categorical variables i took the Simone's pipeline.
  
 ## Import the dataset and fix it:
  
@@ -18,7 +22,7 @@
  dataset <- dataset[,-c(7,8,10)]
  
  
- 
+ ## Boxplots:
  dataset$Category <- as.factor(c( rep("Ill", 30) , rep("At Risk", 50), rep("Healthy",50) ))
  
  
@@ -82,7 +86,7 @@
       numerical <- pseudo_numerical[,c(38:51)]
 #     numerical <- numerical[,-c(7,14)]
 
-## I took the categorical variable preproccessing part by Simone Giacomello's script:
+## Here the categorical varianbles:
     
        categorical <- dataset[1:80,1:37]
        group <- as.factor( c(rep("malati",30), rep("rischio",50)))
