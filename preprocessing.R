@@ -1,5 +1,3 @@
-#setwd("C:/Users/simon/Desktop/universita/MAGISTRALE/nonparametric statistics/project")
-
 parkinson <- read.csv("data/parkinson.csv")
 
 colnames(parkinson) <- parkinson[1,]
@@ -66,6 +64,52 @@ colnames(speech) <- c("EST_r","RST_r","AST_r","DPI_r","DVI_r","GVI_r","DUS_r",
 speech$Age <- parkinson$`Age (years)`
 speech$Gender <- parkinson$Gender
 speech$Category <- parkinson$Category
+
+## Exploratory analysis for the speech variables:
+
+#   • PCA:
+pc.dataset <- princomp(speech[,-c(26,27)], scores=T)
+pc.dataset
+summary(pc.dataset)
+
+#   • loadings
+load.dataset <- pc.dataset$loadings
+load.dataset
+
+#   • summary plot:
+layout(matrix(c(2,3,1,3),2,byrow=T))
+plot(pc.dataset, las=2, main='Principal components', ylim=c(0,1e4))
+barplot(sapply(speech[,-c(26,27)],sd)^2, las=2, main='Original Variables', ylim=c(0,1e4), ylab='Variances')
+plot(cumsum(pc.dataset$sd^2)/sum(pc.dataset$sd^2), type='b', axes=F, xlab='number of components', 
+     ylab='contribution to the total variance', ylim=c(0,1), main = 'Component vs Cumulative variance')
+abline(h=1, col='blue')
+abline(h=0.8 , lty=2, col='blue') 
+box()
+axis(2,at=0:10/10,labels=0:10/10)
+axis(1,at=1:ncol(speech[,-c(26,27)]),labels=1:ncol(speech[,-c(26,27)]),las=2)
+
+#      It seems that keeping 4 PCs is enough to explain over the 90% of the total variability.
+#      Looking the matrix of the loadings i can see that some of the features can be deleted.
+#      The strategy if to look the correlation with the other features and then proceed.
+#      Now find some other information looking the scores.       
+
+#     •  scores:
+scores.dataset <- pc.dataset$scores
+scores.dataset
+
+par(mfrow=c(1,1))
+boxplot(speech[,-c(26,27)], las=2, col='gold', main='Original variables')
+
+boxplot(scores.dataset, las=2, col='gold', main='Principal components')
+
+plot(scores.dataset[,1],scores.dataset[,2],type="n",xlab="pc1",ylab="pc2", asp=1)
+text(scores.dataset[,1],scores.dataset[,2],dimnames(speech[,-c(26,27)])[[1]], cex=0.7)
+
+# NB: the PCA lacks of interpretability, we look at the correlation matrix :
+cormat <- cor(speech[,-c(26,27)])
+library(corrplot)
+corrplot(cormat, method = "number", type = "upper", add = F, tl.col = "black", tl.pos = "n",is.corr=T,diag=T) 
+
 
 #speech dataset
 write.csv(speech, file="data/speech.csv", row.names = FALSE)
