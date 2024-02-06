@@ -20,7 +20,7 @@ The aim of the model is to assign to each RBD patients a probability of beign cl
 
 Different type of models (semiparametric, nonparametric or parametric) were fitted in order to find the best one, which has the following form:
 
-## Authors
+### Authors
 
 Ange Dakouri,
 Simone Giacomello,
