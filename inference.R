@@ -448,3 +448,178 @@ p.vals
 
 colnames(speech.data)[c(2,4,5,12,14,16,17,19,22,23)]
 # "RST_r" "DPI_r" "DVI_r" "LRE_r" "RST_m" "DPI_m" "DVI_m" "DUS_m" "PIR_m" "RSR_m"
+
+
+######### Hierarchical clustering (Only for RBD patients)
+## In order to grasp which of the RBD are closer to the PD or to the Controls, we used
+#a hierarchical clustering methods with k=2, applied to a reduced version of the speeech
+#dataset using only the least correlated columns.
+
+reduced <- data[,c(2,4,5,7,10,11,12,14,16,17,19,22,23,24)]
+RBD <- reduced[31:80,]
+
+dataset.e <- dist(RBD, method='euclidean')
+dataset.m <- dist(RBD, method='manhattan')
+dataset.c <- dist(RBD, method='canberra')
+
+image(1:50,1:50,as.matrix(dataset.e), main='metrics: Euclidean', asp=1, xlab='i', ylab='j' )
+
+image(1:50,1:50,as.matrix(dataset.c), main='metrics: Canberra', asp=1, xlab='i', ylab='j' )
+
+image(1:50,1:50,as.matrix(dataset.m), main='metrics: Manhattan', asp=1, xlab='i', ylab='j' )
+
+# proceed with the Euclidean distance.
+
+dataset.es <- hclust(dataset.e, method='single')
+dataset.ea <- hclust(dataset.e, method='average')
+dataset.ec <- hclust(dataset.e, method='complete')
+dataset.ew<- hclust(dataset.e, method='ward.D2')
+
+plot(dataset.es, main='euclidean-single', hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+rect.hclust(dataset.es, k=2)
+
+plot(dataset.ec, main='euclidean-complete', hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+rect.hclust(dataset.ec, k=2)
+
+plot(dataset.ea, main='euclidean-average', hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+rect.hclust(dataset.ea, k=2)
+
+plot(dataset.ew, main='euclidean-ward', hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+rect.hclust(dataset.ew, k=2)
+
+
+cluster.ew <- cutree(dataset.ew, k=2)
+
+# confirm the the clustering is good throught a permutational MANOVA:
+n1 <- sum(cluster.ew==1)
+n2 <- sum(cluster.ew==2)
+n_test  <- n1+n2
+
+g  <- 2
+p  <- dim(RBD)[2]
+
+fit <- manova(as.matrix(RBD) ~ cluster.ew)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- cluster.ew[permutation]
+  fit.perm <- manova(as.matrix(RBD) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+plot(ecdf(T_stat),xlim=range(c(T_stat,T0)) )
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val # 0, the clustering identifies a significant difference between the 2 groups
+          #inside the RBD data.
+
+# Now which of the two clusters is more similar to PD?
+
+PD <- reduced[1:30,]
+
+# • Start with cluster 1:
+#   - try to build the interested dataset:
+my_dataset <- rbind(PD, RBD[which(cluster.ew==1),])
+PD_RBD_category <- as.factor(c( rep("PD", 30) , rep("RBD", sum(cluster.ew==1)) ))
+
+#   - Manova test:    
+n1 <- dim(PD)[1]
+n2 <- sum(cluster.ew==1)
+n_test  <- n1+n2
+
+g  <- 2
+p  <- dim(my_dataset)[2]
+
+fit <- manova(as.matrix(my_dataset) ~ PD_RBD_category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- PD_RBD_category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+plot(ecdf(T_stat),xlim=range(c(T_stat,T0)))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val # 0.328 , we cannot reject the hypothesis that PD and cluster1 elements
+#are equally distributed. This means that cluster 1 is close to PD patients
+
+# • Repeat with cluster 2:
+#   - try to build the intersted dataset:
+my_dataset <- rbind(PD, RBD[which(cluster.ew==2),])
+PD_RBD_category <- as.factor(c( rep("PD", 30) , rep("RBD", sum(cluster.ew==2)) ))
+
+
+#   - Manova test:    
+n1 <- dim(PD)[1]
+n2 <- sum(cluster.ew==2)
+n_test  <- n1+n2
+
+g  <- 2
+p  <- dim(my_dataset)[2]
+
+fit <- manova(as.matrix(my_dataset) ~ PD_RBD_category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- PD_RBD_category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+plot(ecdf(T_stat),xlim=range(c(T_stat,T0)))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val  # 0.056, We reject the null hypothesis at level 10% but not at level 5%, 
+#so this might mean that cluster 2 is far from PD patients but the division is not
+#so distinct.
+
+
+rows.cl1 <- as.numeric(rownames(RBD[cluster.ew == 1,]))
+rows.cl1
+# 31 33 34 35 36 37 38 39 40 41 43 45 48 52 53 57 59 60 61 
+# 63 64 65 70 71 72 73 74 75 77 78 79 80
+ 
+#these are the row indexes of cluster 1 elements, which are closer to PD patients 
+
+ddPlot(x = PD,y = RBD[rows.cl1-30,], depth_params = list(method='Projection'))
+
+
+
