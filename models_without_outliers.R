@@ -3,6 +3,8 @@ library(ggplot2)
 library(tidyr)
 library(mgcv)
 library(progress)
+library(glmnet)
+library(splines)
 
 B <- 1000
 alpha <- 0.05
@@ -72,6 +74,18 @@ reduced.no.rbd <- speech.df[speech.df$Category != "RBD",
 # reduced.no.rbd <- speech.df[speech.df$Category != "RBD",
 #                             c("RST_r", "DPI_r" ,"RST_m", "DPI_m", "DUS_m","Age","Gender")]
 
+features <- c("RST_r", "DPI_r" ,"RST_m", "DPI_m", "DUS_m")
+Category <- speech.df$Category[speech.df$Category != "RBD"]
+
+for (feature in features) {
+  plot <- ggplot(reduced.no.rbd, aes(x=Category, y=reduced.no.rbd[,feature], fill=Category)) +
+    scale_fill_manual(values=c("lightskyblue","lightcyan4")) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = paste("Box Plot of", feature), x = "Category", y = feature)
+  
+  print(plot)
+}
 
 ###### LOGISTIC REGRESSION MODELS ON SPEECH VARIABLES
 
@@ -205,7 +219,6 @@ summary(model3)$coefficients
 anova(model2,model3, test = "Chisq") #0.3762, reduced model is sufficient
 #Model 2 has all significant terms at level 0.06.
 
-
 cv.performance(model2, treshold) #0.7121212
 
 
@@ -228,7 +241,7 @@ y <- as.factor(as.numeric(grouping == "PD"))
 treshold <- 0.5
 p <- dim(reduced.no.rbd)[2]
 
-#function for computing LOOCV perfromance with a given treshold 
+#function for computing LOOCV performance with a given threshold 
 cv.performance <- function(gam_model, treshold) {
   y <- gam_model$y
   perf <- numeric(length(y))
@@ -338,9 +351,24 @@ gam9 <- gam(y ~ RST_r + DPI_m +
 summary(gam9) #DPI_m and Gender are significant at level 5%
 cv.performance(gam9, treshold) #65.15%
 
+#Natural splines
+gam10 <- gam(y ~ ns(RST_r, df=4)+ ns(DPI_m, df=4) + ns(DUS_m, df=4) + Gender,
+                 family = "binomial", data = reduced.no.rbd)   
+summary(gam10)
 
+gam11 <- gam(y ~ ns(DPI_m, df=4) + ns(DUS_m, df=4) + Gender,
+             family = "binomial", data = reduced.no.rbd)   
+summary(gam11)
 
-
+gam12 <- gam(y ~ ns(DPI_m, df=4) + Gender,
+             family = "binomial", data = reduced.no.rbd)   
+summary(gam12)
+table(true_label = as.numeric(updrsIII_new>3), 
+      prediction = as.numeric(predict(gam12, rbd, "response")>treshold))
+#           prediction
+# true_label   0  1
+#           0 21  6
+#           1 16  7
 
 ##the best model in terms of cv performance is model gam4 but its terms are not 
 #significant and the confusion matrix is poor. 
@@ -366,6 +394,81 @@ table(true_label = as.numeric(updrsIII_new>3),
 
 
 
+#Another solution for the feature selection procedure is LASSO regression
+
+y <- as.numeric(grouping == "PD")
+
+full.no.rbd <- speech.df[speech.df$Category != "RBD",] 
+full.no.rbd$Category <- NULL
+full.no.rbd$GenderM <- as.factor(as.numeric(full.no.rbd$Gender == "M"))
+full.no.rbd$Gender <- NULL
+
+full.model <- glm(y ~ . , data=full.no.rbd)
+
+#   - Let's set a grid of candidate lambda's for the estimate:
+lambda.grid <- 10^seq(5,-3,length=100)
+fit.lasso <- glmnet(x = full.no.rbd, y, family = "binomial", lambda = lambda.grid) 
+
+#    plot the coefficients:
+plot(fit.lasso, xvar='lambda',label=TRUE, col = rainbow(26))
+
+#   - Let's set lambda via cross validation:
+cv.lasso <- cv.glmnet(x = as.matrix( sapply(full.no.rbd, as.numeric) ),
+                      y = y, 
+                      family = "binomial",
+                      lambda = lambda.grid, 
+                      nfolds=66) #LOOCV
+
+
+bestlam.lasso <- cv.lasso$lambda.min
+bestlam.lasso #0.1047616
+
+plot(cv.lasso)
+abline(v=log(bestlam.lasso), lty=1)
+
+#   - Get the coefficients for the optimal lambda:
+coef.lasso <- predict(fit.lasso, s=bestlam.lasso, type = 'coefficients')
+coef.lasso 
+# the only significant variables are the Intercept, DPI_r and DPI_m
+
+lasso.model <- glmnet(x = as.matrix( sapply(full.no.rbd, as.numeric) ), 
+                      y = y, 
+                      family = "binomial", 
+                      lambda = bestlam.lasso) 
+
+#performance on the training set 
+predictions <- predict(lasso.model, 
+                       newx = as.matrix( sapply(full.no.rbd, as.numeric) ),
+                       type='response')
+predicted.classes <- as.numeric(predictions > 0.4) 
+#we impose a lower threshold since the model is biased towards the HC class
+
+table(true_label = y, 
+      prediction = predicted.classes)
+#             prediction
+# true_label   0  1
+#           0 36  7
+#           1 14  9
+
+rbd.new <- rbd
+rbd.new$GenderM <- as.factor(as.numeric(rbd.new$Gender == "M"))
+rbd.new$Gender <- NULL
+
+#prediction on the RBD patients 
+predictions <- predict(lasso.model, 
+        newx = as.matrix( sapply(rbd.new, as.numeric) ),
+        type='response')
+
+predicted.classes <- as.numeric(predictions > 0.4)
+
+table(true_label = as.numeric(updrsIII_new>3), 
+      prediction = predicted.classes)
+#             prediction
+# true_label   0  1
+#           0 17 10
+#           1 12 11
+
+#slightly better
 
 
 
@@ -373,10 +476,3 @@ table(true_label = as.numeric(updrsIII_new>3),
 
 
 
-
-
-
-
-
-
- 
