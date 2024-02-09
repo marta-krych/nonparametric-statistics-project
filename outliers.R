@@ -43,9 +43,8 @@ counts.outliers
 #I define outliers as the units that are outliers in more than 20 bivariate bagplots
 outliers <- head(counts.outliers, 14)
 MOST.OUTLYING <- as.numeric(names(outliers))
+# MOST.OUTLYING <- c(4,6,3,41,72,50,52,28,75,8,23,59,74,11)
 MOST.OUTLYING
-
-#4  6  3 41 72 50 52 28 75  8 23 59 74 11
 
 n <- dim(speech)[1]
 col <- rep("blue", n)
@@ -63,7 +62,9 @@ speech.clean <- speech.clean[order(ids),]
 write.csv(speech.clean, file="data/speech_no_outliers.csv", row.names = FALSE)
 
 
-
+##### outliers plot for the most relevant features
+features <- c("RST_r", "RST_m", "DUS_r", "DUS_m", "DPI_r", "DPI_m")
+pairs(norbd[,features], col=col)
 
 
 
