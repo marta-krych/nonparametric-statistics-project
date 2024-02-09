@@ -139,17 +139,29 @@ significant_p_values <- c()
 set.seed(seed)
 
 for (feature in not_normal_variables) {
-  feature_data <- filtered_data[, feature]
-  group_labels <- filtered_data$Category
   
-  obs_diff <- median(feature_data[group_labels == "PD"]) - median(feature_data[group_labels == "Control"])
+  x1 <- filtered_data[filtered_data$Category == 'PD', feature]
+  x2 <- filtered_data[filtered_data$Category == 'Control', feature]
   
-  perm_diffs <- replicate(n_permutations, {
-    shuffled_labels <- sample(group_labels)
-    median(feature_data[shuffled_labels == "PD"]) - median(feature_data[shuffled_labels == "Control"])
-  })
+  x_pooled <- c(x1,x2)
+  n  <- length(x_pooled)
+  n1 <- length(x1)
   
-  p_value <- mean(abs(perm_diffs) >= abs(obs_diff))
+  T0 <- abs(median(x1) - median(x2)) # test statistic
+  T_stat <- numeric(n_permutations)
+  
+  set.seed(seed)
+  
+  for(perm in 1:n_permutations) {
+    permutation <- sample(1:n)
+    x_perm <- x_pooled[permutation]
+    x1_perm <- x_perm[1:n1]
+    x2_perm <- x_perm[(n1+1):n]
+    
+    T_stat[perm] <- abs(median(x1_perm) - median(x2_perm))
+  }
+  
+  p_value <- sum(T_stat>=T0)/n_permutations
   
   if (p_value < 0.05) {
     significant_p_values[feature] <- p_value
