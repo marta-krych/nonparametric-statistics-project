@@ -104,7 +104,7 @@ print(homogeneous_normal_variables)
 
 ### Testing the normally distributed variables for the difference in mean between HC and PD
 
-significancy_test_results <- list()
+t_test_results <- list()
 significant_normal_variables <- c()
 
 set.seed(seed)
@@ -115,7 +115,7 @@ for (feature in homogeneous_normal_variables) {
   
   test <- t.test(pd_data, hc_data, alternative="two.sided", mu=0)
   
-  normality_test_results[[feature]] <- list(t_test_p_value = test$p.value)
+  t_test_results[[feature]] <- list(t_test_p_value = test$p.value)
   
   if (test$p.value < 0.05) {
     significant_normal_variables <- c(significant_normal_variables, feature)
