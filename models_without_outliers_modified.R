@@ -67,7 +67,7 @@ c("RST_r", "DPI_r" ,"RST_m", "DPI_m", "DUS_m")
 
 #dataset for PD+HC patients with only the significant variables, plus age and gender
 reduced.no.rbd <- speech.df[speech.df$Category != "RBD",
-            c(names(which(p.values < alpha)),"Age","Gender")]
+            c(names(which(p.values < alpha)),"Age","Gender")] # here i do a runn with age and a run without it
 # 
 # reduced.no.rbd <- speech.df[speech.df$Category != "RBD",
 #                             c("RST_r", "DPI_r" ,"RST_m", "DPI_m", "DUS_m","Age","Gender")]
@@ -351,9 +351,11 @@ errors = (as.numeric(updrsIII_new>3) != as.numeric(predict(gam8, rbd, "response"
 ER =  sum(errors)/length(updrsIII_new)
 ER # 0.34
 
+
 ### Let's see another approach: cluster analysis:
 rbd_of_interest <- speech.df[speech.df$Category == "RBD",
                             c(names(which(p.values < alpha)),"Age","Gender")]
+
 rbd_of_interest$Gender <- ifelse(rbd_of_interest$Gender == 'F',1,0)
 
 reduced.no.rbd$Gender <- ifelse(reduced.no.rbd$Gender == 'F',1,0)
@@ -444,7 +446,7 @@ plot(ecdf(T_stat),xlim=c(-2,1))
 abline(v=T0,col=3,lwd=4)
 
 p_val <- sum(T_stat>=T0)/B
-p_val # 0.035( 0.002 without Age)
+p_val # 0.035 with Age variable (0.021 without)
 
 # cluster 1: we are in limit case with Age variable while is clearly control-like  without it
 
@@ -486,11 +488,10 @@ plot(ecdf(T_stat),xlim=c(-2,1))
 abline(v=T0,col=3,lwd=4)
 
 p_val <- sum(T_stat>=T0)/B
-p_val # 0.032 (0.013 without age variable)
+p_val # 0.032 with variable Age (0.018 without)
 
-# Cluster 1: PD-like (label 1)
-# Cluster 2: Healthlike (label 1)
 
+# adjust the labels according with the two previous p-values
 cluster.ew[which(cluster.ew == 1)] <- 0
 cluster.ew[which(cluster.ew == 2)] <- 1
 
@@ -498,7 +499,7 @@ cluster.ew[which(cluster.ew == 2)] <- 1
 table(true_label=as.numeric(updrsIII_new>3), prediction=cluster.ew)
 errors = (cluster.ew!= as.numeric(updrsIII_new>3))
 ER =  sum(errors)/length(as.numeric(updrsIII_new>3))
-ER # 0.38
+ER # 0.38 with and without Age
 
 
 ### K-means:
@@ -506,13 +507,12 @@ result.k <- kmeans(rbd_of_interest, centers=2)
 length(which(result.k$cluster==1))
 
 # Assess the quality of clustering:
-n1 <- 24 # with Age variable
-# n1 <- 30
-n2 <- 26
+n1 <- 9 
+n2 <- 41 
 n_test  <- n1+n2
 
 g  <- 2
-p  <- 6
+p  <- 7
 
 fit <- manova(as.matrix(rbd_of_interest) ~ result.k$cluster)
 summary.manova(fit,test="Wilks") 
@@ -544,14 +544,14 @@ p_val # 0
 
 # Verify cluster 1
 my_dataset <- rbind(reduced.no.rbd[1:23,], rbd_of_interest[which(result.k$cluster==1), ])
-category <- as.factor(c( rep("0", 23) , rep("1", 24) )) # rep("1", 9), with age variable
+category <- as.factor(c( rep("0", 23) , rep("1", 20) )) # rep("1", 9), with age variable
 
 n1 <- 23
-n2 <- 24
+n2 <- 20 # with Age variable
 n_test  <- n1+n2
 
 g  <- 2
-p  <- 8
+p  <- 6
 
 fit <- manova(as.matrix(my_dataset) ~ category)
 summary.manova(fit,test="Wilks") 
@@ -579,19 +579,20 @@ plot(ecdf(T_stat),xlim=c(-2,1))
 abline(v=T0,col=3,lwd=4)
 
 p_val <- sum(T_stat>=T0)/B
-p_val # 0.032 (without age variable 0.005)
+p_val 
+
 
 
 # cluster 2:
 my_dataset <- rbind(reduced.no.rbd[1:23,], rbd_of_interest[which(result.k$cluster==2), ])
-category <- as.factor(c( rep("0", 23) , rep("1", 26) )) # rep("1", 41) ) with Age variable
+category <- as.factor(c( rep("0", 23) , rep("1", 30) ))
 
 n1 <- 23
-n2 <- 26
+n2 <- 30
 n_test  <- n1+n2
 
 g  <- 2
-p  <- 8
+p  <- 6
 
 fit <- manova(as.matrix(my_dataset) ~ category)
 summary.manova(fit,test="Wilks") 
@@ -619,21 +620,161 @@ plot(ecdf(T_stat),xlim=c(-2,1))
 abline(v=T0,col=3,lwd=4)
 
 p_val <- sum(T_stat>=T0)/B
-p_val # 0.035 (0.021 without age variable)
+p_val 
 
+# adjust the labels according to the two previous p-values
 result.k$cluster[which(result.k$cluster == 1)] <- 0
 result.k$cluster[which(result.k$cluster == 2)] <- 1
 
 # table and the error:
-
 table(true_label=as.numeric(updrsIII_new>3), prediction=result.k$cluster)
 errors = (result.k$cluster!= as.numeric(updrsIII_new>3))
 ER =  sum(errors)/length(as.numeric(updrsIII_new>3))
-ER # 0.36 (0.38 without variable Age)
+ER 
+
+# > 0.6 with and without variable Age;
+# It has happened that ER = 0.38, i think that the removal of the outlier is much sgnificant.
+
+
+# Let's use a robust version of K-means: K-medoids:
+if (!requireNamespace("cluster", quietly = TRUE)) {
+  install.packages("cluster")
+}
+
+# Load the 'cluster' package
+library(cluster)
+
+result <- pam(rbd_of_interest, 2)
+result$clustering
+length(which(result$clustering==1))
+
+
+# Assess the quality of clustering:
+n1 <- 31# with Age variable
+n2 <- 19 # " "
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 7
+
+fit <- manova(as.matrix(rbd_of_interest) ~ result$clustering)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- result$clustering[permutation]
+  fit.perm <- manova(as.matrix(rbd_of_interest) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val # 0
+
+# Verify cluster 1
+my_dataset <- rbind(reduced.no.rbd[1:23,], rbd_of_interest[which(result$clustering==1), ])
+category <- as.factor(c( rep("0", 23) , rep("1", 31) )) # rep("1", 9), with age variable
+
+n1 <- 23
+n2 <- 31 # with Age variable
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(my_dataset) ~ category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val 
 
 
 
+# cluster 2:
+my_dataset <- rbind(reduced.no.rbd[1:23,], rbd_of_interest[which(result$clustering==2), ])
+category <- as.factor(c( rep("0", 23) , rep("1", 19) ))
 
+n1 <- 23
+n2 <- 19
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(my_dataset) ~ category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val 
+
+
+# adjust the labels
+result.k$cluster[which(result$clustering == 1)] <- 0
+result.k$cluster[which(result$clustering == 2)] <- 0
+
+# table and the error:
+table(true_label=as.numeric(updrsIII_new>3), prediction=result$clustering)
+errors = (result.k$cluster!= as.numeric(updrsIII_new>3))
+ER =  sum(errors)/length(as.numeric(updrsIII_new>3))
+ER # >= 0.6
 
 
 

@@ -49,6 +49,7 @@ for (feature in features) {
 ### Checking for speech variables with Gaussian distribution
 
 filtered_data <- subset(data, Category %in% c("PD", "Control"))
+filtered_data_RBD <- subset(data, Category %in% c("RBD"))
 features <- names(filtered_data)[!(names(filtered_data) %in% c("Age","Category","Gender"))]
 
 normality_test_results <- list()
@@ -182,7 +183,7 @@ for (feature in features) {
 
 
 
-### Modeling step: semiparametric model
+### Modeling step: semiparametric model (i dind't run this section for the cluster analysis, with some exceptions)
 
 library(mgcv)
 library(splines)
@@ -190,11 +191,11 @@ library(splines)
 
 ## Building a model with: Gender RST_r DPI_r DUS_r RST_m DPI_m 
 
-df_model_g <- filtered_data[,c(26,2,4,7,14,16)] 
+df_model_g <- filtered_data[,c(26,2,4,7,14,16)] # this yes
 df_model_g$Category <- ifelse(filtered_data$Category == 'PD',1,0)
 
 df_model_g <- data.frame(Gender=parkinson[c(pd, control),2], df_model_g)
-df_model_g$Gender <- ifelse(df_model_g$Gender == 'F',1,0)
+df_model_g$Gender <- ifelse(df_model_g$Gender == 'F',1,0) # this yes
 
 with(df_model_g, scatterplotMatrix(data.frame(Category, Gender, RST_r, DPI_r, DUS_r, DPI_m, RST_m)))
 
@@ -248,7 +249,7 @@ predictions <- predict(model_semipar_f, test, se=TRUE, type="response")
 # pfit <- exp(predictions$fit)/(1 + exp(predictions$fit))
 
 model_RBD <- ifelse(predictions$fit > .5, 1, 0)
-updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
+updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0) # this yes
 
 # table and the error:
 table(true_label=updrs_RBD, prediction=model_RBD)
@@ -307,7 +308,6 @@ ER
 
 
 ### Let's see another approach: cluster analysis:
-filtered_data_RBD <- subset(data, Category %in% c("RBD"))
 filtered_data_RBD <- filtered_data_RBD[,c(26,2,4,7,14,16)]
 filtered_data_RBD$Gender <- ifelse(filtered_data_RBD$Gender == 'F',1,0)
 
@@ -459,8 +459,8 @@ result.k <- kmeans(filtered_data_RBD, centers=2)
 length(which(result.k$cluster==1))
 
 # Assess the quality of clustering:
-n1 <- 24
-n2 <- 26
+n1 <- 30
+n2 <- 20
 n_test  <- n1+n2
 
 g  <- 2
@@ -496,10 +496,10 @@ p_val # 0
 
 # Verify cluster 1:
 my_dataset <- rbind(df_model_g[1:30,], filtered_data_RBD[which(result.k$cluster==1), ])
-category <- as.factor(c( rep("0", 30) , rep("1", 24) ))
+category <- as.factor(c( rep("0", 30) , rep("1", 41) ))
 
 n1 <- 30
-n2 <- 24
+n2 <- 41
 n_test  <- n1+n2
 
 g  <- 2
@@ -531,15 +531,15 @@ plot(ecdf(T_stat),xlim=c(-2,1))
 abline(v=T0,col=3,lwd=4)
 
 p_val <- sum(T_stat>=T0)/B
-p_val # 0.025
+p_val 
 
 
 # cluster 2:
 my_dataset <- rbind(df_model_g[1:30,], filtered_data_RBD[which(result.k$cluster==2), ])
-category <- as.factor(c( rep("0", 30) , rep("1", 26) ))
+category <- as.factor(c( rep("0", 30) , rep("1", 9) ))
 
 n1 <- 30
-n2 <- 26
+n2 <- 9
 n_test  <- n1+n2
 
 g  <- 2
@@ -571,16 +571,17 @@ plot(ecdf(T_stat),xlim=c(-2,1))
 abline(v=T0,col=3,lwd=4)
 
 p_val <- sum(T_stat>=T0)/B
-p_val # 0.009
+p_val 
 
-result.k$cluster[which(result.k$cluster == 2)] <- 0
+result.k$cluster[which(result.k$cluster == 1)] <- 0
+result.k$cluster[which(result.k$cluster == 2)] <- 1
 
 # table and the error:
 table(true_label=updrs_RBD, prediction=result.k$cluster)
 
 errors = (result.k$cluster != updrs_RBD)
 ER =  sum(errors)/length(updrs_RBD)
-ER # 0.38
+ER # 0.38 (in one run i had 0.36)
 
 
 
