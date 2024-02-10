@@ -1,5 +1,6 @@
 
 seed <- 20012024
+B <- 1000
 
 ### Pre-processing part
 
@@ -48,6 +49,7 @@ for (feature in features) {
 ### Checking for speech variables with Gaussian distribution
 
 filtered_data <- subset(data, Category %in% c("PD", "Control"))
+filtered_data_RBD <- subset(data, Category %in% c("RBD"))
 features <- names(filtered_data)[!(names(filtered_data) %in% c("Age","Category","Gender"))]
 
 normality_test_results <- list()
@@ -178,7 +180,7 @@ print(significant_p_values)
 ### Boxplots of significant features (HC vs PD)
 
 library(ggplot2)
-data <- speech_dataset[speech_dataset$Category != "RBD",]
+data <- speech_dataset[speech_dataset$Category != "RBD",] # speech dataset
 features <- c("RST_r", "DPI_r", "DUS_r", "DPI_m", "RST_m")
 
 for (feature in features) {
@@ -193,7 +195,7 @@ for (feature in features) {
 
 
 
-### Modeling step: semiparametric model
+### Modeling step: semiparametric model (i dind't run this section for the cluster analysis, with some exceptions)
 
 library(mgcv)
 library(splines)
@@ -201,11 +203,11 @@ library(splines)
 
 ## Building a model with: Gender RST_r DPI_r DUS_r RST_m DPI_m 
 
-df_model_g <- filtered_data[,c(25,2,4,7,14,16)]
+df_model_g <- filtered_data[,c(26,2,4,7,14,16)] # this yes
 df_model_g$Category <- ifelse(filtered_data$Category == 'PD',1,0)
 
 df_model_g <- data.frame(Gender=parkinson[c(pd, control),2], df_model_g)
-df_model_g$Gender <- ifelse(df_model_g$Gender == 'F',1,0)
+df_model_g$Gender <- ifelse(df_model_g$Gender == 'F',1,0) # this yes
 
 with(df_model_g, scatterplotMatrix(data.frame(Category, Gender, RST_r, DPI_r, DUS_r, DPI_m, RST_m)))
 
@@ -259,19 +261,63 @@ predictions <- predict(model_semipar_f, test, se=TRUE, type="response")
 # pfit <- exp(predictions$fit)/(1 + exp(predictions$fit))
 
 model_RBD <- ifelse(predictions$fit > .5, 1, 0)
-updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
+updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0) # this yes
 
+# table and the error:
 table(true_label=updrs_RBD, prediction=model_RBD)
 
+errors = (model_RBD != updrs_RBD)
+ER =  sum(errors)/length(updrs_RBD)
+ER
 
-cols <- ifelse(updrs_RBD == 1, 'red', 'black')
-plot(predictions$fit, col=cols, pch=16)
-abline(0.5, 0, col='red', lty=2, lwd=2)
 
 #           prediction
 # true_label   0  1
 #          0  18  9
 #          1  11 12
+# ER = 0.4
+
+
+DPI_r.grid <- seq(range(df_model_g$DPI_r)[1] - 0.05 * diff(range(df_model_g$DPI_r)),
+                  range(df_model_g$DPI_r)[2] + 0.05 * diff(range(df_model_g$DPI_r)),
+                  length.out=120)
+RST_m.grid <- seq(range(df_model_g$RST_m)[1] - 0.05 * diff(range(df_model_g$RST_m)),
+                  range(df_model_g$RST_m)[2] + 0.05 * diff(range(df_model_g$RST_m)),
+                  length.out=120)
+
+grid <- expand.grid(DPI_r.grid, RST_m.grid)
+
+
+pfitM <- predict(model_semipar_f, 
+                 newdata=data.frame(DPI_r = grid$Var1, RST_m = grid$Var2, Gender = 0), 
+                 type="response")
+
+grid$Male <- pfitM
+
+pfitF <- predict(model_semipar_f,                  
+                 newdata=data.frame(DPI_r = grid$Var1, RST_m = grid$Var2, Gender = 1), 
+                 type="response")
+grid$Female <- pfitF 
+
+
+# Scatter plot
+par(mfrow=c(1,2))
+with(df_model_g, 
+     plot(DPI_r, RST_m,
+          col = ifelse(Gender.1 == "M", "grey", 0), pch=16, cex=0.7))
+contour(DPI_r.grid, RST_m.grid, 
+        matrix(grid$Male, nrow = length(DPI_r.grid), ncol = length(RST_m.grid)),
+        levels = 0.5, add = TRUE, col = "blue", lwd = 2)
+
+with(df_model_g, 
+     plot(DPI_r, RST_m, ylim=c(200, 400), xlim=c(90, 250),
+          col = ifelse(Gender.1 == "F", "grey", 0), pch=16, cex=0.7))
+contour(DPI_r.grid, RST_m.grid, 
+        matrix(grid$Female, nrow = length(DPI_r.grid), ncol = length(RST_m.grid)),
+        levels = 0.5, add = TRUE, col = "pink", lwd = 2)
+
+
+
 
 
 
@@ -306,6 +352,290 @@ data.frame(lower=c_preds$lo,
 model_RBD <- ifelse(c_preds$pred > .5, 1, 0)
 updrs_RBD <- ifelse(updrsIII.new > 3, 1, 0)
 
+# table and the error:
 table(true_label=updrs_RBD, prediction=model_RBD)
+errors = (model_RBD != updrs_RBD)
+ER =  sum(errors)/length(updrs_RBD)
+ER
 
+
+### Let's see another approach: cluster analysis:
+filtered_data_RBD <- filtered_data_RBD[,c(26,2,4,7,14,16)]
+filtered_data_RBD$Gender <- ifelse(filtered_data_RBD$Gender == 'F',1,0)
+
+### Hierarchical clustering:
+dataset.e <- dist(filtered_data_RBD, method='euclidean')
+dataset.ew<- hclust(dataset.e, method='ward.D2')
+
+
+x11()
+plot(dataset.ew, main='euclidean-ward', hang=-0.1, xlab='', labels=F, cex=0.6, sub='')
+rect.hclust(dataset.ew, k=2)
+
+cluster.ew <- cutree(dataset.ew, k=2)
+length(which(cluster.ew==1))
+
+# Asses the goodness of clustering with permutational MANOVA:
+n1 <- 26
+n2 <- 24
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(filtered_data_RBD) ~ cluster.ew)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- cluster.ew[permutation]
+  fit.perm <- manova(as.matrix(filtered_data_RBD) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val # 0
+
+# Assess similarity with PD with permutational Manova:
+# Start with cluster 1:
+my_dataset <- rbind(df_model_g[1:30,], filtered_data_RBD[which(cluster.ew==1), ])
+category <- as.factor(c( rep("0", 30) , rep("1", 26) ))
+
+n1 <- 30
+n2 <- 26
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(my_dataset) ~ category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val # 0.009
+
+# cluster 1 is Control-like
+
+
+#  Continue with cluster 2:
+my_dataset <- rbind(df_model_g[1:30,], filtered_data_RBD[which(cluster.ew==2), ])
+category <- as.factor(c( rep("0", 30) , rep("1", 24) ))
+
+n1 <- 30
+n2 <- 24
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(my_dataset) ~ category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val # 0.025
+
+# Cluster 1: health-like (label 0)
+# Cluster 2: PD-like (label 1)
+
+cluster.ew[which(cluster.ew == 1)] <- 0
+cluster.ew[which(cluster.ew == 2)] <- 1
+
+# table and the error:
+table(true_label=updrs_RBD, prediction=cluster.ew)
+errors = (cluster.ew!= updrs_RBD)
+ER =  sum(errors)/length(updrs_RBD)
+ER # 0.38
+
+
+### K-means:
+result.k <- kmeans(filtered_data_RBD, centers=2)
+length(which(result.k$cluster==1))
+
+# Assess the quality of clustering:
+n1 <- 30
+n2 <- 20
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(filtered_data_RBD) ~ result.k$cluster)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- result.k$cluster[permutation]
+  fit.perm <- manova(as.matrix(filtered_data_RBD) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val # 0
+
+# Verify cluster 1:
+my_dataset <- rbind(df_model_g[1:30,], filtered_data_RBD[which(result.k$cluster==1), ])
+category <- as.factor(c( rep("0", 30) , rep("1", 41) ))
+
+n1 <- 30
+n2 <- 41
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(my_dataset) ~ category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val 
+
+
+# cluster 2:
+my_dataset <- rbind(df_model_g[1:30,], filtered_data_RBD[which(result.k$cluster==2), ])
+category <- as.factor(c( rep("0", 30) , rep("1", 9) ))
+
+n1 <- 30
+n2 <- 9
+n_test  <- n1+n2
+
+g  <- 2
+p  <- 6
+
+fit <- manova(as.matrix(my_dataset) ~ category)
+summary.manova(fit,test="Wilks") 
+
+T0 <- -summary.manova(fit,test="Wilks")$stats[1,2]
+T0
+
+set.seed(seed)
+T_stat <- numeric(B)
+
+for(perm in 1:B){
+  # choose random permutation
+  permutation <- sample(1:n_test)
+  category.perm <- category[permutation]
+  fit.perm <- manova(as.matrix(my_dataset) ~ category.perm)
+  T_stat[perm] <- -summary.manova(fit.perm,test="Wilks")$stats[1,2]
+}
+
+x11()
+hist(T_stat,xlim=range(c(T_stat,T0)),breaks=30)
+abline(v=T0,col=3,lwd=2)
+
+x11()
+plot(ecdf(T_stat),xlim=c(-2,1))
+abline(v=T0,col=3,lwd=4)
+
+p_val <- sum(T_stat>=T0)/B
+p_val 
+
+result.k$cluster[which(result.k$cluster == 1)] <- 0
+result.k$cluster[which(result.k$cluster == 2)] <- 1
+
+# table and the error:
+table(true_label=updrs_RBD, prediction=result.k$cluster)
+
+errors = (result.k$cluster != updrs_RBD)
+ER =  sum(errors)/length(updrs_RBD)
+ER # 0.38 (in one run i had 0.36)
+
+
+
+ 
 
