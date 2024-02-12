@@ -129,8 +129,7 @@ table(true_label = as.numeric(updrsIII.new>3),
 #           0 20  7
 #           1 12 11
 
-############# DA RIVEDERE
-##### plot of the decision boundaries of model 5
+##### Plot of the decision boundaries of model 5
 
 DPI_r.grid <- seq(range(norbd$DPI_r)[1] - 0.05 * diff(range(norbd$DPI_r)),
                   range(norbd$DPI_r)[2] + 0.05 * diff(range(norbd$DPI_r)),
@@ -139,35 +138,50 @@ DPI_m.grid <- seq(range(norbd$DPI_m)[1] - 0.05 * diff(range(norbd$DPI_m)),
                   range(norbd$DPI_m)[2] + 0.05 * diff(range(norbd$DPI_m)),
                   length.out=100)
 
-grid <- expand.grid(DPI_r.grid, DPI_m.grid)
+grid <- expand.grid(DPI_r=DPI_r.grid, DPI_m=DPI_m.grid)
 
-
-pfitM <- fit5$coefficients[1] + fit5$coefficients[2] * norbd$DPI_r + 
-  fit5$coefficients[3]*norbd$DPI_m + fit5$coefficients[4]*(norbd$Gender == "M")
-
-grid$Male <- exp(pfitM)/ (1 + exp(pfitM))
-
-pfitF <- fit5$coefficients[1] + fit5$coefficients[2] * norbd$DPI_r + 
-  fit5$coefficients[3]*norbd$DPI_m + fit5$coefficients[4]*(norbd$Gender == "F")
-
-grid$Female <- exp(pfitF)/ (1 + exp(pfitF))
-
-
+predsM <- predict(fit5, newdata=data.frame(DPI_r=grid$DPI_r, DPI_m=grid$DPI_m, Gender="M"), type="response")
+predsF <- predict(fit5, newdata=data.frame(DPI_r=grid$DPI_r, DPI_m=grid$DPI_m, Gender="F"), type="response")
+grid$Male <- predsM
+grid$Female <- predsF
 
 par(mfrow=c(1,2))
 with(norbd, 
-     plot(DPI_m, DPI_r,
-          col = ifelse(Gender == "M", "grey", 0), pch=16, cex=0.7))
-contour(DPI_m.grid, DPI_r.grid, 
-        matrix(grid$Male, ncol = length(DPI_r.grid), nrow = length(DPI_m.grid)),
+     plot(DPI_r, DPI_m,
+          col=ifelse(Gender == "M", "grey", 0), pch=16, cex=0.7))
+contour(DPI_r.grid, DPI_m.grid, 
+        matrix(grid$Male, nrow = length(DPI_r.grid),ncol = length(DPI_m.grid)),
         levels = 0.5, add = TRUE, col = "blue", lwd = 2)
 
 with(norbd, 
-     plot(DPI_m, DPI_r, ylim=c(200, 400), xlim=c(90, 250),
+     plot(DPI_r, DPI_m, ylim=c(200, 400), xlim=c(90, 250),
           col = ifelse(Gender == "F", "grey", 0), pch=16, cex=0.7))
-contour(DPI_m.grid, DPI_r.grid, 
-        matrix(grid$Female, ncol = length(DPI_r.grid), nrow = length(DPI_m.grid)),
+contour(DPI_r.grid, DPI_m.grid, 
+        matrix(grid$Female, nrow = length(DPI_r.grid), ncol = length(DPI_m.grid)),
         levels = 0.5, add = TRUE, col = "pink", lwd = 2)
+
+
+##### Logistic curves for the best model
+# (we reduce the dimensionality of the grid)
+
+DPI_r.grid <- seq(range(norbd$DPI_r)[1] - 0.05 * diff(range(norbd$DPI_r)),
+                  range(norbd$DPI_r)[2] + 0.05 * diff(range(norbd$DPI_r)),
+                  length.out=20)
+DPI_m.grid <- seq(range(norbd$DPI_m)[1] - 0.05 * diff(range(norbd$DPI_m)),
+                  range(norbd$DPI_m)[2] + 0.05 * diff(range(norbd$DPI_m)),
+                  length.out=20)
+gridM <- expand.grid(DPI_r=DPI_r.grid, DPI_m=DPI_m.grid, Gender="M")
+predsM <- predict(fit5, gridM, type="response")
+zM <- matrix(predsM, length(DPI_r.grid))
+
+gridF <- expand.grid(DPI_r=DPI_r.grid, DPI_m=DPI_m.grid, Gender="F")
+predsF <- predict(fit5, gridF, type="response")
+zF <- matrix(predsF, length(DPI_r.grid))
+
+par(mfrow=c(1,2))
+persp(DPI_r.grid, DPI_m.grid, zM, xlab="DPI_r", ylab = "DPI_m", zlab="risk",  theta = 230, phi = 20, col="blue")
+persp(DPI_r.grid, DPI_m.grid, zF, xlab="DPI_r", ylab = "DPI_m", zlab="risk",  theta = 230, phi = 20, col="pink")
+
 
 #####
 
