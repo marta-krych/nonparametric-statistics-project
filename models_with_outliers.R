@@ -280,44 +280,23 @@ ER
 
 DPI_r.grid <- seq(range(df_model_g$DPI_r)[1] - 0.05 * diff(range(df_model_g$DPI_r)),
                   range(df_model_g$DPI_r)[2] + 0.05 * diff(range(df_model_g$DPI_r)),
-                  length.out=120)
+                  length.out=20)
 RST_m.grid <- seq(range(df_model_g$RST_m)[1] - 0.05 * diff(range(df_model_g$RST_m)),
                   range(df_model_g$RST_m)[2] + 0.05 * diff(range(df_model_g$RST_m)),
-                  length.out=120)
+                  length.out=20)
 
-grid <- expand.grid(DPI_r.grid, RST_m.grid)
+gridM <- expand.grid(DPI_r = DPI_r.grid, RST_m = RST_m.grid, Gender = 0)
+predsM <- predict(model_semipar_f, gridM, type="response")
+zM <- matrix(predsM, length(DPI_r.grid))
 
-
-pfitM <- predict(model_semipar_f, 
-                 newdata=data.frame(DPI_r = grid$Var1, RST_m = grid$Var2, Gender = 0), 
-                 type="response")
-
-grid$Male <- pfitM
-
-pfitF <- predict(model_semipar_f,                  
-                 newdata=data.frame(DPI_r = grid$Var1, RST_m = grid$Var2, Gender = 1), 
-                 type="response")
-grid$Female <- pfitF 
+gridF <- expand.grid(DPI_r = DPI_r.grid, RST_m = RST_m.grid, Gender = 1)
+predsF <- predict(model_semipar_f, gridF, type="response")
+zF <- matrix(predsF, length(DPI_r.grid))
 
 
-# Scatter plot
 par(mfrow=c(1,2))
-with(df_model_g, 
-     plot(DPI_r, RST_m,
-          col = ifelse(Gender.1 == "M", "grey", 0), pch=16, cex=0.7))
-contour(DPI_r.grid, RST_m.grid, 
-        matrix(grid$Male, nrow = length(DPI_r.grid), ncol = length(RST_m.grid)),
-        levels = 0.5, add = TRUE, col = "blue", lwd = 2)
-
-with(df_model_g, 
-     plot(DPI_r, RST_m, ylim=c(200, 400), xlim=c(90, 250),
-          col = ifelse(Gender.1 == "F", "grey", 0), pch=16, cex=0.7))
-contour(DPI_r.grid, RST_m.grid, 
-        matrix(grid$Female, nrow = length(DPI_r.grid), ncol = length(RST_m.grid)),
-        levels = 0.5, add = TRUE, col = "pink", lwd = 2)
-
-
-
+persp(DPI_r.grid, RST_m.grid, zM, xlab="DPI_r", ylab = "RST_m", zlab="risk",  theta = 230, phi = 20, col="blue")
+persp(DPI_r.grid, RST_m.grid, zF, xlab="DPI_r", ylab = "RST_m", zlab="risk",  theta = 230, phi = 20, col="pink")
 
 
 

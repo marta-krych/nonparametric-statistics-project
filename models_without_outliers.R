@@ -336,46 +336,31 @@ table(true_label = as.numeric(updrsIII_new>3),
 #           1 13  10
 
 
-DPI_m.grid <- seq(range(reduced.no.rbd$DPI_m)[1] - 0.05 * diff(range(reduced.no.rbd$DPI_m)),
-                  range(reduced.no.rbd$DPI_m)[2] + 0.05 * diff(range(reduced.no.rbd$DPI_m)),
-                  length.out=120)
-RST_r.grid <- seq(range(reduced.no.rbd$RST_r)[1] - 0.05 * diff(range(reduced.no.rbd$RST_r)),
-                  range(reduced.no.rbd$RST_r)[2] + 0.05 * diff(range(reduced.no.rbd$RST_r)),
-                  length.out=120)
+#### plot for model 8
 
-grid <- expand.grid(DPI_m.grid, RST_r.grid)
+RST_r.grid <- seq(range(reduced.no.rbd$RST_r)[1] - 
+                    0.05 * diff(range(reduced.no.rbd$RST_r)),
+                  range(reduced.no.rbd$RST_r)[2] +
+                    0.05 * diff(range(reduced.no.rbd$RST_r)),
+                  length.out=20)
+DPI_m.grid <- seq(range(reduced.no.rbd$DPI_m)[1] - 
+                    0.05 * diff(range(reduced.no.rbd$DPI_m)),
+                  range(reduced.no.rbd$DPI_m)[2] + 
+                    0.05 * diff(range(reduced.no.rbd$DPI_m)),
+                  length.out=20)
+gridM <- expand.grid(RST_r=RST_r.grid, DPI_m=DPI_m.grid, Gender="M")
+predsM <- predict(gam8, gridM, type="response")
+zM <- matrix(predsM, length(RST_r.grid))
 
+gridF <- expand.grid(RST_r=RST_r.grid, DPI_m=DPI_m.grid, Gender="F")
+predsF <- predict(gam8, gridF, type="response")
+zF <- matrix(predsF, length(DPI_m.grid))
 
-pfitM <- predict(gam8, 
-                 newdata=data.frame(DPI_m = grid$Var1, RST_r = grid$Var2, Gender = "M"), 
-                 type="response")
-
-grid$Male <- pfitM
-
-pfitF <- predict(gam8,                  
-                 newdata=data.frame(DPI_m = grid$Var1, RST_r = grid$Var2, Gender = "F"), 
-                 type="response")
-grid$Female <- pfitF 
-
-
-# Scatter plot
 par(mfrow=c(1,2))
-with(reduced.no.rbd, 
-     plot(DPI_m, RST_r,
-          col = ifelse(Gender == "M", "grey", 0), pch=16, cex=0.7))
-contour(DPI_m.grid, RST_r.grid, 
-        matrix(grid$Male, nrow = length(DPI_m.grid), ncol = length(RST_r.grid)),
-        levels = 0.5, add = TRUE, col = "blue", lwd = 2)
+persp(RST_r.grid, DPI_m.grid, zM, xlab="RST_r", ylab = "DPI_m", zlab="risk",  theta = 230, phi = 20, col="blue")
+persp(RST_r.grid, DPI_m.grid, zF, xlab="RST_r", ylab = "DPI_m", zlab="risk",  theta = 230, phi = 20, col="pink")
 
-with(reduced.no.rbd, 
-     plot(DPI_m, RST_r, xlim = c(100, 350), ylim = c(270, 420),
-          col = ifelse(Gender == "F", "grey", 0), pch=16, cex=0.7))
-contour(DPI_m.grid, RST_r.grid, 
-        matrix(grid$Female, nrow = length(DPI_m.grid), ncol = length(RST_r.grid)),
-        levels = 0.5, add = TRUE, col = "pink", lwd = 2)
-
-
-
+######
 
 gam9 <- gam(y ~ RST_r + DPI_m +
               Gender , family = 'binomial', data=reduced.no.rbd)
