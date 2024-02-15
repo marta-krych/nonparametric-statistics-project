@@ -299,6 +299,22 @@ persp(DPI_r.grid, RST_m.grid, zM, xlab="DPI_r", ylab = "RST_m", zlab="risk",  th
 persp(DPI_r.grid, RST_m.grid, zF, xlab="DPI_r", ylab = "RST_m", zlab="risk",  theta = 230, phi = 20, col="pink")
 
 
+### 3D Logistic surfaces for the best model
+
+library(plotly)
+
+plotM <- plot_ly(x=DPI_r.grid, y=RST_m.grid, z=zM) %>% layout(scene = list(xaxis = list(title = "DPI_r"), 
+                                                                           yaxis = list(title = "RST_m"),
+                                                                           zaxis = list(title = "risk"))) %>%
+  add_surface(colorscale = list(list(0,"e6e6fa"), list(1,"00008b")))
+plotM
+
+plotF <- plot_ly(x=DPI_r.grid, y=RST_m.grid, z=zF) %>% layout(scene = list(xaxis = list(title = "DPI_r"), 
+                                                                           yaxis = list(title = "RST_m"),
+                                                                           zaxis = list(title = "risk"))) %>%
+  add_surface(colorscale = list(list(0,"ffe4e1"), list(1,"8b0000")))
+plotF
+
 
 ### Full conformal prediction
 
