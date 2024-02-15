@@ -161,7 +161,7 @@ contour(DPI_r.grid, DPI_m.grid,
         levels = 0.5, add = TRUE, col = "pink", lwd = 2)
 
 
-##### Logistic curves for the best model
+##### Logistic surfaces for the best model
 # (we reduce the dimensionality of the grid)
 
 DPI_r.grid <- seq(range(norbd$DPI_r)[1] - 0.05 * diff(range(norbd$DPI_r)),
@@ -181,6 +181,22 @@ zF <- matrix(predsF, length(DPI_r.grid))
 par(mfrow=c(1,2))
 persp(DPI_r.grid, DPI_m.grid, zM, xlab="DPI_r", ylab = "DPI_m", zlab="risk",  theta = 230, phi = 20, col="blue")
 persp(DPI_r.grid, DPI_m.grid, zF, xlab="DPI_r", ylab = "DPI_m", zlab="risk",  theta = 230, phi = 20, col="pink")
+
+##### 3D logistic surfaces for the best model
+       
+library(plotly)
+
+plotM <- plot_ly(x=DPI_r.grid, y=DPI_m.grid, z=zM) %>% layout(scene = list(xaxis = list(title = "DPI_r"), 
+                                                                           yaxis = list(title = "DPI_m"),
+                                                                           zaxis = list(title = "risk"))) %>%
+  add_surface(colorscale = list(list(0,"e6e6fa"), list(1,"00008b")))
+plotM
+
+plotF <- plot_ly(x=DPI_r.grid, y=DPI_m.grid, z=zF) %>% layout(scene = list(xaxis = list(title = "DPI_r"), 
+                                                                           yaxis = list(title = "DPI_m"),
+                                                                           zaxis = list(title = "risk"))) %>%
+  add_surface(colorscale = list(list(0,"ffe4e1"), list(1,"8b0000")))
+plotF
 
 
 #####
