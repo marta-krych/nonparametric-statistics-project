@@ -116,7 +116,7 @@ summary(fit4)$coefficients  #DPI_r and gender are significant
 
 fit5 <- glmrob(y ~ DPI_r + DPI_m + Gender  , 
                family = binomial, method="Mqle", data=norbd)
-summary(fit5)$coefficients #DPI_m is not significant
+summary(fit5)$coefficients #All significant at level 10% 
 
 preds <- fit5$coefficients[1] + fit5$coefficients[2] * rbd$DPI_r + 
   fit5$coefficients[3]*rbd$DPI_m + fit5$coefficients[4]*(rbd$Gender == "M")
