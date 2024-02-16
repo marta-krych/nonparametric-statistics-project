@@ -16,9 +16,6 @@ Hlavnika,J., Tykalov,T., Onka,K., Rika,E., Rusz,J., and J.,J.. (2017). Early bio
 We applied nonparametric methods for feature selection (ANOVA/MANOVA, clustering and permutation tests) to the speech-related variables in order to build a logistic regression model. 
 The aim of the model is to assign to each RBD patients a probability of beign classified as Parkinson ill (to be interpreted as the risk of developing the disease).
 
-### Results
-
-Different type of models (semiparametric, nonparametric or parametric) were fitted in order to find the best one, which has the following form:
 
 ### Authors
 
